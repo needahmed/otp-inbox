@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  gmailAccounts GmailAccount[]
+}
+
+model GmailAccount {
+  id            String    @id @default(cuid())
+  userId        String
+  email         String    @unique
+  accessToken   String    // AES-256-GCM encrypted
+  refreshToken  String    // AES-256-GCM encrypted
+  tokenExpiry   DateTime
+  lastCheckedAt DateTime  @default(now())
+  historyId     String?   // Gmail incremental sync cursor
+  isActive      Boolean   @default(true)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otpCodes      OtpCode[]
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model OtpCode {
+  id             String       @id @default(cuid())
+  gmailAccountId String
+  emailId        String       // Gmail message ID
+  sender         String
+  subject        String
+  code           String
+  codeType       String       // "numeric_otp" | "alphanumeric" | "magic_link"
+  confidence     Float
+  rawSnippet     String
+  receivedAt     DateTime
+  expiresAt      DateTime?
+  copiedAt       DateTime?
+  gmailAccount   GmailAccount @relation(fields: [gmailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([gmailAccountId])
+  @@index([receivedAt])
+  @@index([emailId])
+}

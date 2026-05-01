@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OTP Inbox — Connected!</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #0f172a;
+      color: #f1f5f9;
+    }
+    .card {
+      text-align: center;
+      padding: 2rem;
+      background: #1e293b;
+      border-radius: 12px;
+      max-width: 360px;
+    }
+    .icon { font-size: 3rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+    p { color: #94a3b8; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔐</div>
+    <h1>Gmail Connected!</h1>
+    <p id="message">Saving your session…</p>
+  </div>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const email = params.get('email');
+
+      if (!token) {
+        document.getElementById('message').textContent = 'Error: no token received.';
+        return;
+      }
+
+      // Store token in extension storage
+      chrome.storage.local.get(['jwt', 'accounts'], function (existing) {
+        const accounts = existing.accounts || [];
+        if (email && !accounts.includes(email)) {
+          accounts.push(email);
+        }
+        chrome.storage.local.set({ jwt: token, accounts }, function () {
+          document.getElementById('message').textContent =
+            email ? `Connected as ${email}. This tab will close shortly.` : 'Connected! This tab will close shortly.';
+
+          // Notify service worker to refresh codes immediately
+          chrome.runtime.sendMessage({ type: 'AUTH_SUCCESS' });
+
+          setTimeout(() => window.close(), 1500);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

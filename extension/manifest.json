@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "OTP Inbox",
+  "version": "1.0.0",
+  "description": "See your Gmail OTP codes without opening Gmail.",
+  "permissions": [
+    "storage",
+    "notifications",
+    "alarms",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://beaming-overpresumptuous-lelah.ngrok-free.dev/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://beaming-overpresumptuous-lelah.ngrok-free.dev/*"
+    ]
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "public/icons/icon16.png",
+      "32": "public/icons/icon32.png",
+      "48": "public/icons/icon48.png",
+      "128": "public/icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/autofill.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "32": "public/icons/icon32.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["public/icons/*", "success.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
