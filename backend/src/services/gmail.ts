@@ -119,14 +119,11 @@ export async function listNewMessages(
       q: "is:unread newer_than:1d",
       maxResults: 20,
     });
-    newHistoryId = listRes.data.resultSizeEstimate?.toString();
     messageIds = (listRes.data.messages ?? []).map((m) => m.id!).filter(Boolean);
 
-    // Capture historyId from profile if not already set
-    if (!newHistoryId) {
-      const profile = await gmail.users.getProfile({ userId: "me" });
-      newHistoryId = profile.data.historyId ?? undefined;
-    }
+    // Capture the real Gmail history cursor after the fallback query.
+    const profile = await gmail.users.getProfile({ userId: "me" });
+    newHistoryId = profile.data.historyId ?? undefined;
   }
 
   if (newHistoryId) {
@@ -179,13 +176,21 @@ export async function setupGmailWatch(account: GmailAccount): Promise<void> {
   const auth = await getAuthenticatedClient(account);
   const gmail = google.gmail({ version: "v1", auth });
 
-  await gmail.users.watch({
+  const watchRes = await gmail.users.watch({
     userId: "me",
     requestBody: {
       topicName: `projects/${projectId}/topics/${topic}`,
       labelIds: ["INBOX"],
     },
   });
+
+  const historyId = watchRes.data.historyId;
+  if (historyId && !account.historyId) {
+    await prisma.gmailAccount.update({
+      where: { id: account.id },
+      data: { historyId, lastCheckedAt: new Date() },
+    });
+  }
 }
 
 export function makeOAuth2ClientForOAuth(): OAuth2Client {

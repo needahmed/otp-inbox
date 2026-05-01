@@ -7,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 import { globalRateLimit } from "./middleware/rateLimit";
 import authRouter from "./routes/auth";
 import codesRouter from "./routes/codes";
+import eventsRouter from "./routes/events";
 import webhooksRouter from "./routes/webhooks";
 import { startPoller } from "./services/poller";
 import { startWatchRenewal, registerWatchForAllAccounts } from "./services/pubsub";
@@ -48,6 +49,7 @@ app.get("/health", (_req, res) => res.json({ status: "ok", timestamp: new Date()
 // Routes
 app.use("/auth", authRouter);
 app.use("/codes", codesRouter);
+app.use("/events", eventsRouter);
 app.use("/webhooks", webhooksRouter);
 
 // 404 handler

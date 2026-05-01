@@ -28,17 +28,26 @@ router.post("/gmail", async (req: Request, res: Response) => {
   try {
     payload = JSON.parse(Buffer.from(message.data, "base64").toString("utf-8"));
   } catch {
+    console.warn(`[Webhook] Ignoring Pub/Sub message ${message.messageId}: invalid payload`);
     return;
   }
+
+  console.log(
+    `[Webhook] Gmail notification ${message.messageId} for ${payload.emailAddress} (history ${payload.historyId})`
+  );
 
   const account = await prisma.gmailAccount.findUnique({
     where: { email: payload.emailAddress },
   });
 
-  if (!account || !account.isActive) return;
+  if (!account || !account.isActive) {
+    console.warn(`[Webhook] No active account for ${payload.emailAddress}`);
+    return;
+  }
 
   try {
     const messages = await listNewMessages(account, account.historyId);
+    console.log(`[Webhook] Found ${messages.length} new Gmail message(s) for ${account.email}`);
 
     for (const msg of messages) {
       const existing = await prisma.otpCode.findFirst({ where: { emailId: msg.id } });
@@ -81,6 +90,8 @@ router.post("/gmail", async (req: Request, res: Response) => {
         receivedAt: stored.receivedAt.toISOString(),
         accountEmail: account.email,
       });
+
+      console.log(`[Webhook] Stored OTP event for ${account.email} from ${stored.sender}`);
     }
   } catch (err) {
     console.error("[Webhook] Gmail processing error:", err);

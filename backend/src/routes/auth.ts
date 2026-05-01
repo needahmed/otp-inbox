@@ -1,11 +1,12 @@
 import { Router, Request, Response } from "express";
 import { google } from "googleapis";
+import { GmailAccount } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../index";
 import { encrypt, decrypt } from "../utils/encryption";
 import { signToken } from "../utils/jwt";
 import { requireAuth, AuthRequest } from "../middleware/auth";
-import { makeOAuth2ClientForOAuth } from "../services/gmail";
+import { makeOAuth2ClientForOAuth, setupGmailWatch } from "../services/gmail";
 
 const router = Router();
 
@@ -87,10 +88,11 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     });
 
     let userId: string;
+    let gmailAccount: GmailAccount;
 
     if (existingAccount) {
       userId = existingAccount.userId;
-      await prisma.gmailAccount.update({
+      gmailAccount = await prisma.gmailAccount.update({
         where: { id: existingAccount.id },
         data: {
           accessToken: encrypt(tokens.access_token),
@@ -102,7 +104,7 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     } else {
       const user = await prisma.user.create({ data: {} });
       userId = user.id;
-      await prisma.gmailAccount.create({
+      gmailAccount = await prisma.gmailAccount.create({
         data: {
           userId,
           email: userInfo.email,
@@ -114,6 +116,10 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     }
 
     const jwt = signToken(userId);
+
+    setupGmailWatch(gmailAccount)
+      .then(() => console.log(`[PubSub] Watch registered for ${gmailAccount.email}`))
+      .catch((err) => console.error(`[PubSub] Watch registration failed for ${gmailAccount.email}:`, err));
 
     if (state) {
       pendingAuthSessions.set(state, {

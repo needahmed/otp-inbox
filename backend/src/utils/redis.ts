@@ -2,10 +2,13 @@ import Redis from "ioredis";
 
 let redisClient: Redis | null = null;
 
+function redisUrl(): string {
+  return process.env.REDIS_URL ?? "redis://localhost:6379";
+}
+
 export function getRedis(): Redis {
   if (!redisClient) {
-    const url = process.env.REDIS_URL ?? "redis://localhost:6379";
-    redisClient = new Redis(url, {
+    redisClient = new Redis(redisUrl(), {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
     });
@@ -15,6 +18,20 @@ export function getRedis(): Redis {
     });
   }
   return redisClient;
+}
+
+export function createRedisClient(name: string): Redis {
+  const client = new Redis(redisUrl(), {
+    connectionName: name,
+    maxRetriesPerRequest: 3,
+    lazyConnect: true,
+  });
+
+  client.on("error", (err) => {
+    console.error(`[Redis:${name}] Connection error:`, err.message);
+  });
+
+  return client;
 }
 
 export async function cacheSet(key: string, value: unknown, ttlSeconds: number): Promise<void> {

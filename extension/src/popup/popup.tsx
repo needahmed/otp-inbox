@@ -62,21 +62,40 @@ export default function Popup() {
     setAccounts(accts ?? []);
     setLastSynced(ls ?? null);
     setView("codes");
+    chrome.runtime.sendMessage({ type: "FORCE_POLL" });
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const handleStorageChange = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      areaName: string
+    ) => {
+      if (areaName !== "local") return;
+
+      if (changes.codes) setCodes((changes.codes.newValue as StoredCode[] | undefined) ?? []);
+      if (changes.accounts) setAccounts((changes.accounts.newValue as string[] | undefined) ?? []);
+      if (changes.lastSynced) setLastSynced((changes.lastSynced.newValue as string | null | undefined) ?? null);
+      if (changes.jwt && !changes.jwt.newValue) setView("logged_out");
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+  }, []);
+
   const handleRefresh = useCallback(async () => {
     setSyncing(true);
     setError(null);
     try {
-      const { jwt } = await getStorage(["jwt"]);
+      const { jwt, seenIds } = await getStorage(["jwt", "seenIds"]);
       if (!jwt) { setView("logged_out"); return; }
 
       const { codes: fresh, lastUpdated } = await fetchCodes(jwt);
-      await setStorage({ codes: fresh, lastSynced: lastUpdated });
+      const nextSeenIds = [...new Set([...(seenIds ?? []), ...fresh.map((code) => code.id)])].slice(-200);
+      await setStorage({ codes: fresh, seenIds: nextSeenIds, lastSynced: lastUpdated });
       setCodes(fresh);
       setLastSynced(lastUpdated);
     } catch (err) {
